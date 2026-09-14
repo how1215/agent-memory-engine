@@ -11,3 +11,4 @@ memory.json
 *.egg-info/
 dist/
 build/
+docs/interview_guide.md
