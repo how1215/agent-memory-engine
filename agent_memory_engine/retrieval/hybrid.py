@@ -1,13 +1,13 @@
 """Hybrid retrieval combining BM25 with embedding cosine similarity.
 
 The semantic component bridges vocabulary and language gaps that lexical
-matching cannot resolve. It is opt-in through ``PI_MEMORY_HYBRID=1`` and the
+matching cannot resolve. It is opt-in through ``AGENT_MEMORY_HYBRID=1`` and the
 embedding model is loaded lazily on first use.
 """
 from __future__ import annotations
-import os
 from functools import lru_cache
 
+from ..config import env
 from .bm25 import bm25_search
 
 _DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -17,7 +17,7 @@ _DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 def _get_model():
     """Load and cache the configured sentence-transformers model."""
     from sentence_transformers import SentenceTransformer
-    name = os.environ.get("PI_MEMORY_EMBED_MODEL", _DEFAULT_MODEL)
+    name = env("AGENT_MEMORY_EMBED_MODEL", "PI_MEMORY_EMBED_MODEL", _DEFAULT_MODEL)
     return SentenceTransformer(name)
 
 
@@ -40,9 +40,9 @@ def hybrid_search(
     """final_score = alpha * normalized_BM25 + (1 - alpha) * cosine_similarity
 
     ``alpha`` controls lexical weight and can be overridden with
-    ``PI_MEMORY_HYBRID_ALPHA``. Invalid overrides fall back to the argument.
+    ``AGENT_MEMORY_HYBRID_ALPHA``. Invalid overrides fall back to the argument.
     """
-    a = os.environ.get("PI_MEMORY_HYBRID_ALPHA")
+    a = env("AGENT_MEMORY_HYBRID_ALPHA", "PI_MEMORY_HYBRID_ALPHA")
     if a is not None:
         try:
             candidate = float(a)

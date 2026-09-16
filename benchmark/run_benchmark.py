@@ -65,9 +65,9 @@ def main() -> None:
     descriptor, temporary_path = tempfile.mkstemp(suffix=".json")
     os.close(descriptor)
     try:
-        os.environ["PI_MEMORY_PATH"] = temporary_path
+        os.environ["AGENT_MEMORY_PATH"] = temporary_path
         sys.path.insert(0, str(ROOT))
-        from memory.core import capture, make_observation, retrieve, set_memory_path
+        from agent_memory_engine.service import capture, make_observation, retrieve, set_memory_path
 
         set_memory_path(temporary_path)
         for row in corpus:
@@ -106,7 +106,10 @@ def main() -> None:
         def average(values: list[float]) -> float:
             return sum(values) / len(values) if values else 0.0
 
-        engine = "hybrid" if os.environ.get("PI_MEMORY_HYBRID") == "1" else "bm25"
+        hybrid_enabled = (
+            os.environ.get("AGENT_MEMORY_HYBRID") or os.environ.get("PI_MEMORY_HYBRID")
+        ) == "1"
+        engine = "hybrid" if hybrid_enabled else "bm25"
         summary = {
             "engine": engine,
             "corpus_size": len(corpus),

@@ -2,20 +2,20 @@
 //   - before_agent_start retrieves and injects relevant memories.
 //   - the remember tool persists durable facts stated by the user.
 //
-// Run from any directory with: pi -e /path/to/pi-bridge/extension.ts
+// Run from any directory with: pi -e /path/to/adapters/pi/extension.ts
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const PY = process.env.PYTHON ?? "python3";
-// Resolve imports relative to this extension so Pi can be launched anywhere.
-const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
+const PY = process.env.AGENT_MEMORY_PYTHON ?? process.env.PYTHON ?? "python3";
+// Resolve the repository root from adapters/pi so Pi can be launched anywhere.
+const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 type MemoryResult = { ok: boolean; output: string };
 
 function callMemory(args: string[]): MemoryResult {
-  const r = spawnSync(PY, ["-m", "memory.cli", ...args], {
+  const r = spawnSync(PY, ["-m", "agent_memory_engine.cli", ...args], {
     encoding: "utf8",
     cwd: REPO_ROOT,
     env: { ...process.env, PYTHONPATH: REPO_ROOT },
@@ -30,15 +30,41 @@ function callMemory(args: string[]): MemoryResult {
 }
 
 export default function (pi: ExtensionAPI) {
-  // Retrieve against the new prompt immediately before the agent starts.
+  // Memory retrieval is opt-in per request. The input hook removes the marker so
+  // it neither reaches the model nor affects retrieval ranking.
+  let injectForNextRequest = false;
+  pi.on("input", async (event, _ctx) => {
+    const text = event.text.trimStart();
+    if (!text.startsWith("@memory")) {
+      injectForNextRequest = false;
+      return { action: "continue" };
+    }
+
+    const remainder = text.slice("@memory".length);
+    if (remainder && !/^\s/.test(remainder)) {
+      // Do not treat words such as "@memoryless" as the opt-in marker.
+      injectForNextRequest = false;
+      return { action: "continue" };
+    }
+
+    const prompt = remainder.trimStart();
+    injectForNextRequest = prompt.length > 0;
+    return { action: "transform", text: prompt };
+  });
+
+  // Retrieve against the marked prompt immediately before the agent starts.
   pi.on("before_agent_start", async (event, _ctx) => {
+    const shouldInject = injectForNextRequest;
+    injectForNextRequest = false;
+    if (!shouldInject) return;
+
     const query: string = event.prompt ?? "";
     if (!query) return;
     const result = callMemory(["inject", "--query", query, "--budget", "2000"]);
     if (!result.ok || !result.output) return;
     return {
       message: {
-        customType: "pi-memory",
+        customType: "agent-memory",
         content: result.output,
         display: true,
       },

@@ -2,7 +2,7 @@
 
 import pytest
 
-from memory.hybrid import _normalize_max, hybrid_search
+from agent_memory_engine.retrieval.hybrid import _normalize_max, hybrid_search
 
 
 class _VectorResult:
@@ -34,7 +34,7 @@ def test_normalize_max():
 
 
 def test_hybrid_semantic_signal_can_change_ranking(monkeypatch):
-    monkeypatch.setattr("memory.hybrid._get_model", lambda: _FakeModel())
+    monkeypatch.setattr("agent_memory_engine.retrieval.hybrid._get_model", lambda: _FakeModel())
     docs = [
         {"id": "lexical", "text": "semantic query"},
         {"id": "semantic", "text": "different words"},

@@ -3,7 +3,7 @@ import os
 import tempfile
 import pytest
 
-from memory.bm25 import tokenize, bm25_search
+from agent_memory_engine.retrieval.bm25 import tokenize, bm25_search
 
 DOCS = [
     {"id": "d1", "text": "this project uses pnpm test"},
@@ -44,14 +44,14 @@ def test_bm25_idf_rare_term_wins():
 def tmp_store(monkeypatch):
     f = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
     f.close()
-    from memory import core
-    core.set_memory_path(f.name)
+    from agent_memory_engine import service
+    service.set_memory_path(f.name)
     yield f.name
     os.unlink(f.name)
 
 
 def test_capture_retrieve(tmp_store):
-    from memory.core import capture, retrieve, make_observation
+    from agent_memory_engine.service import capture, retrieve, make_observation
     capture(make_observation("this project uses pnpm"))
     capture(make_observation("deploy with docker compose"))
     hits = retrieve("how to run pnpm", 1)
@@ -59,27 +59,49 @@ def test_capture_retrieve(tmp_store):
 
 
 def test_dedup(tmp_store):
-    from memory.core import capture, retrieve, make_observation
+    from agent_memory_engine.service import capture, retrieve, make_observation
     capture(make_observation("use pnpm"))
     capture(make_observation("use pnpm"))
     assert len(retrieve("pnpm", 10)) == 1
 
 
 def test_persistence(tmp_store):
-    from memory import core
-    from memory.core import capture, retrieve, make_observation
+    from agent_memory_engine import service
+    from agent_memory_engine.service import capture, retrieve, make_observation
     capture(make_observation("use pnpm not npm"))
-    core.set_memory_path(tmp_store)  # Simulate a process restart and reload.
+    service.set_memory_path(tmp_store)  # Simulate a process restart and reload.
     assert len(retrieve("pnpm", 5)) == 1
 
 
 def test_injection_budget(tmp_store):
-    from memory.core import capture, build_injection, make_observation
+    from agent_memory_engine.service import capture, build_injection, make_observation
     for i in range(50):
         capture(make_observation(f"pnpm fact number {i} about the build system"))
     out = build_injection("pnpm build", token_budget=80)
     assert len(out) < 80 * 4 + 50
     assert "[Relevant memories" in out
+
+
+def test_custom_store_can_be_injected():
+    from agent_memory_engine.service import capture, make_observation, retrieve, set_store
+
+    class InMemoryStore:
+        def __init__(self):
+            self.items = []
+
+        def add(self, observation):
+            self.items.append(observation)
+            return True
+
+        def all(self):
+            return list(self.items)
+
+        def clear(self):
+            self.items.clear()
+
+    set_store(InMemoryStore())
+    capture(make_observation("use pnpm for package installation"))
+    assert retrieve("pnpm", 1)[0]["summary"] == "use pnpm for package installation"
 
 
 # Edge cases
@@ -111,35 +133,35 @@ def test_store_ignores_non_list_json(tmp_store):
     import json
     with open(tmp_store, "w", encoding="utf-8") as f:
         json.dump({"not": "a list"}, f)
-    from memory import core
-    core.set_memory_path(tmp_store)
-    from memory.core import retrieve
+    from agent_memory_engine import service
+    service.set_memory_path(tmp_store)
+    from agent_memory_engine.service import retrieve
     assert retrieve("anything", 5) == []
 
 
 def test_retrieve_empty_query_returns_no_memories(tmp_store):
-    from memory.core import capture, make_observation, retrieve
+    from agent_memory_engine.service import capture, make_observation, retrieve
 
     capture(make_observation("use pnpm"))
     assert retrieve("   ", 5) == []
 
 
 def test_retrieve_excludes_zero_score_documents(tmp_store):
-    from memory.core import capture, make_observation, retrieve
+    from agent_memory_engine.service import capture, make_observation, retrieve
 
     capture(make_observation("deploy with Docker Compose"))
     assert retrieve("unrelated vocabulary", 5) == []
 
 
 def test_zero_injection_budget_returns_empty_string(tmp_store):
-    from memory.core import build_injection, capture, make_observation
+    from agent_memory_engine.service import build_injection, capture, make_observation
 
     capture(make_observation("use pnpm"))
     assert build_injection("pnpm", token_budget=0) == ""
 
 
 def test_store_creates_missing_parent_directory(tmp_path):
-    from memory.store import JsonStore
+    from agent_memory_engine.storage.json_store import JsonStore
 
     path = tmp_path / "nested" / "memory.json"
     store = JsonStore(str(path))
@@ -148,7 +170,7 @@ def test_store_creates_missing_parent_directory(tmp_path):
 
 
 def test_store_rejects_observation_without_id(tmp_path):
-    from memory.store import JsonStore
+    from agent_memory_engine.storage.json_store import JsonStore
 
     store = JsonStore(str(tmp_path / "memory.json"))
     with pytest.raises(ValueError, match="must contain"):

@@ -5,10 +5,10 @@ __pycache__/
 node_modules/
 .DS_Store
 # Runtime memory files
+.agent-memory.json
 .pi-memory.json
 memory.json
 .pytest_cache/
 *.egg-info/
 dist/
 build/
-docs/interview_guide.md

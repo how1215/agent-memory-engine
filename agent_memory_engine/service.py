@@ -1,18 +1,17 @@
 """Public capture, retrieval, and prompt-injection pipeline."""
 from __future__ import annotations
 import hashlib
-import os
 import time
-from pathlib import Path
+from .config import default_store_path, env
+from .retrieval.bm25 import bm25_search
+from .storage.base import MemoryStore
+from .storage.json_store import JsonStore
 
-from .store import JsonStore
-from .bm25 import bm25_search
-
-_store_path = os.environ.get("PI_MEMORY_PATH") or str(Path.home() / ".pi-memory.json")
-_store: JsonStore | None = None
+_store_path = default_store_path()
+_store: MemoryStore | None = None
 
 
-def _get_store() -> JsonStore:
+def _get_store() -> MemoryStore:
     global _store
     if _store is None:
         _store = JsonStore(_store_path)
@@ -20,10 +19,20 @@ def _get_store() -> JsonStore:
 
 
 def set_memory_path(path: str) -> None:
-    """Select a memory file and reload it, primarily for tests and adapters."""
+    """Select the JSON backend path and reload it, primarily for local use and tests."""
     global _store_path, _store
     _store_path = path
     _store = JsonStore(_store_path)
+
+
+def set_store(store: MemoryStore) -> None:
+    """Inject a storage backend implementing ``MemoryStore``.
+
+    This is the extension point for future SQLite, service, or vector-backed
+    stores without coupling the application service to their implementation.
+    """
+    global _store
+    _store = store
 
 
 def sha256(text: str) -> str:
@@ -59,8 +68,8 @@ def retrieve(query: str, k: int) -> list[dict]:
         return []
     all_obs = _get_store().all()
     docs = [{"id": o["id"], "text": " ".join([o["summary"], *o.get("tags", [])])} for o in all_obs]
-    if os.environ.get("PI_MEMORY_HYBRID") == "1":
-        from .hybrid import hybrid_search
+    if env("AGENT_MEMORY_HYBRID", "PI_MEMORY_HYBRID") == "1":
+        from .retrieval.hybrid import hybrid_search
         ranked = hybrid_search(query, docs, k)
     else:
         # Zero-score documents are not relevant merely because the store is small.

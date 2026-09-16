@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pi-agent-memory"
+name = "agent-memory-engine"
 version = "1.0.0"
-description = "Local, persistent, hybrid-search memory for coding agents"
+description = "Framework-agnostic persistent memory infrastructure for AI agents"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["agents", "memory", "bm25", "retrieval", "local-first"]
@@ -24,10 +24,12 @@ hybrid = ["sentence-transformers>=2.7"]
 test = ["pytest>=8"]
 
 [project.scripts]
-pi-memory = "memory.cli:main"
+agent-memory = "agent_memory_engine.cli:main"
+# Transitional alias for users of the original Pi-specific release.
+pi-memory = "agent_memory_engine.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["memory*"]
+include = ["agent_memory_engine*"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

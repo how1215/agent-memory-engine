@@ -4,13 +4,13 @@ import argparse
 import json
 import sys
 
-from .core import capture, retrieve, build_injection, make_observation
+from .service import capture, retrieve, build_injection, make_observation
 
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(
-        prog="pi-memory",
-        description="Persist and retrieve durable coding-agent memories.",
+        prog="agent-memory",
+        description="Persist and retrieve durable memories for AI agents.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 

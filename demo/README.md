@@ -1,16 +1,17 @@
 # End-to-end demonstration
 
 This demonstration shows a project convention surviving a complete agent
-restart. It exercises the same capture, persistence, retrieval, and injection
-path used by the Pi adapter.
+restart. It exercises the framework-neutral Agent Memory Engine through its Pi
+adapter. Pi-specific lifecycle translation stays in `adapters/pi/`; persistence,
+retrieval, and context construction stay in the Python engine.
 
 ## Session A: capture a convention
 
 Start Pi with the extension:
 
 ```bash
-export PI_MEMORY_PATH="$PWD/.pi-memory.json"
-pi -e "$PWD/pi-bridge/extension.ts"
+export AGENT_MEMORY_PATH="$PWD/.agent-memory.json"
+pi -e "$PWD/adapters/pi/extension.ts"
 ```
 
 Tell the agent:
@@ -20,7 +21,7 @@ Please remember that this project uses pnpm, not npm, and that the test command
 is pnpm test.
 ```
 
-The agent calls `remember`; the adapter invokes `pi-memory capture`; and the
+The agent calls `remember`; the adapter invokes `agent-memory capture`; and the
 result is persisted as a JSON observation. Exit Pi completely after the tool
 call finishes.
 
@@ -29,12 +30,13 @@ call finishes.
 Launch the same command again to create a fresh session, then ask:
 
 ```text
-How do I run the tests for this project?
+@memory How do I run the tests for this project?
 ```
 
-Before the agent starts, the adapter retrieves memories related to the new
-question and injects the stored convention. The agent can answer `pnpm test`
-without asking the user to restate it.
+Prefix a question with `@memory` to make the adapter retrieve related memories
+before the agent starts and inject the stored convention. The prefix is removed
+before the question reaches the agent. The agent can answer `pnpm test` without
+asking the user to restate it, while unmarked questions skip retrieval.
 
 ```mermaid
 sequenceDiagram
@@ -46,7 +48,7 @@ sequenceDiagram
     P->>M: remember(summary, tags)
     M->>J: atomic persist
     Note over U,P: Process exits; a new session starts
-    U->>P: How do I run the tests?
+    U->>P: @memory How do I run the tests?
     P->>M: inject(query, budget=2000)
     M->>J: load observations
     M-->>P: Relevant memory: use pnpm test
@@ -58,11 +60,11 @@ sequenceDiagram
 The storage and retrieval path can also be verified without installing Pi:
 
 ```bash
-export PI_MEMORY_PATH="$PWD/.pi-memory.json"
-python -m memory.cli capture \
+export AGENT_MEMORY_PATH="$PWD/.agent-memory.json"
+python -m agent_memory_engine.cli capture \
   --summary "This project uses pnpm; run tests with pnpm test" \
   --tags "tooling,testing"
-python -m memory.cli inject \
+python -m agent_memory_engine.cli inject \
   --query "How do I run the tests?" \
   --budget 500
 ```

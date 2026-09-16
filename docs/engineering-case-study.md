@@ -1,4 +1,4 @@
-# Engineering case study
+# Agent Memory Engine engineering case study
 
 ## Problem
 
@@ -7,7 +7,7 @@ such as package-manager choices, test commands, deployment conventions, and user
 preferences disappear. Repeating that context wastes time and makes the agent's
 behavior inconsistent between sessions.
 
-Pi Agent Memory explores a local-first solution with four explicit stages:
+Agent Memory Engine begins with a local-first solution containing four explicit stages:
 
 1. **Capture** a concise observation through an agent tool.
 2. **Store** it in an inspectable, persistent format.
@@ -16,9 +16,10 @@ Pi Agent Memory explores a local-first solution with four explicit stages:
 
 ## Design priorities
 
-The implementation optimizes for a single developer running a local coding
+The current implementation optimizes for a single developer running a local
 agent. The priorities are predictable behavior, zero required services, easy
-debugging, and graceful failure.
+debugging, and graceful failure. The package itself is framework-neutral; Pi is
+the first adapter under `adapters/pi/`.
 
 The deterministic path contains tokenization, BM25 scoring, deduplication,
 persistence, result ordering, and prompt-budget enforcement. The optional model
@@ -38,9 +39,10 @@ interrupted write from leaving a partially serialized memory file. Missing,
 malformed, or incorrectly shaped stores load as empty so memory cannot prevent
 the coding agent from starting.
 
-This design does not provide multi-process locking. A production version would
-use SQLite or another transactional store once concurrent writers or a large
-corpus become requirements.
+This design does not provide multi-process locking. The engine now exposes a
+`MemoryStore` protocol and `set_store()` seam, but JSON is still the only shipped
+backend. A production version would use SQLite or another transactional store
+once concurrent writers or a large corpus become measured requirements.
 
 ## Retrieval design
 
@@ -112,8 +114,10 @@ to the included examples.
 
 ## Context-budget trade-off
 
-The default injection budget is 2,000 approximate tokens. A larger budget raises
-the chance of including useful facts but consumes context, increases inference
+When an adapter requests context construction, the default injection budget is
+2,000 approximate tokens. The Pi adapter makes retrieval opt-in with the
+`@memory` prefix, avoiding retrieval and new context on unmarked requests. A
+larger budget raises the chance of including useful facts but consumes context, increases inference
 latency, and can distract the model. A smaller budget protects the active task
 but may omit supporting memories.
 
@@ -139,6 +143,22 @@ Before production use, the design should add explicit retention controls,
 redaction, encryption at rest, per-project isolation, prompt-injection defenses,
 and user-visible deletion. Concurrent access would also require locking or a
 transactional database.
+
+## Evolution toward a general engine
+
+The original prototype coupled package names, configuration, and file layout to
+Pi. The current structure separates the framework-neutral
+`agent_memory_engine/` package from `adapters/pi/`, uses generic
+`AGENT_MEMORY_*` configuration, and defines a minimal storage protocol. Legacy
+Pi command/configuration aliases remain temporarily for migration.
+
+This separation is a foundation, not proof of production maturity. The next
+architectural steps are typed/versioned records, an instantiable engine instead
+of process globals, scoped repository queries, backend contract tests, explicit
+retriever/reranker interfaces, and a second adapter that validates there are no
+hidden Pi assumptions. Security, conflict resolution, lifecycle policy, and
+observability must precede autonomous memory consolidation. See
+[`architecture.md`](architecture.md) and [`roadmap.md`](roadmap.md).
 
 ## What this project demonstrates
 

@@ -1,4 +1,4 @@
-# Retrieval benchmark
+# Agent Memory Engine retrieval benchmark
 
 This directory contains two labeled datasets for measuring retrieval quality.
 The compact dataset is useful for quick iteration; the larger dataset adds
@@ -26,7 +26,7 @@ python benchmark/run_benchmark.py \
   --k 5
 
 # Optional semantic + lexical retrieval
-PI_MEMORY_HYBRID=1 python benchmark/run_benchmark.py --k 5
+AGENT_MEMORY_HYBRID=1 python benchmark/run_benchmark.py --k 5
 
 # Machine-readable output for experiment tracking
 python benchmark/run_benchmark.py --json
@@ -40,3 +40,16 @@ The runner reports three complementary metrics:
 
 Each run uses a temporary JSON store and removes it afterward, so benchmarking
 never changes the user's real memory file.
+
+## Evaluation roadmap
+
+The current benchmark measures retrieval only. Before treating the engine as a
+mature service, extend it with held-out and adversarial sets containing
+no-relevant-result queries, stale/conflicting facts, tenant/workspace isolation,
+paraphrases, multilingual queries, and same-topic distractors. Track
+Precision@k, no-result accuracy, p50/p95 latency, indexing throughput, context
+precision, and end-to-end answer grounding in addition to the current metrics.
+
+Every retriever, fusion, reranking, embedding-model, or lifecycle-policy change
+should record its configuration and compare against the deterministic BM25
+baseline. Production claims must not be inferred from the checked-in fixtures.
