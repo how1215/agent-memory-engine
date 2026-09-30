@@ -10,9 +10,16 @@ from .service import (
     set_store,
 )
 from .storage.base import MemoryStore
+from .managed import MemoryEngine, MemoryModel, MemoryRecord, RecordStore
+from .storage.sqlite_secure import SQLiteMemoryStore
 
 __all__ = [
     "MemoryStore",
+    "MemoryEngine",
+    "MemoryModel",
+    "MemoryRecord",
+    "RecordStore",
+    "SQLiteMemoryStore",
     "bm25_search",
     "build_injection",
     "capture",

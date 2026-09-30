@@ -21,10 +21,12 @@ dependencies = []
 
 [project.optional-dependencies]
 hybrid = ["sentence-transformers>=2.7"]
-test = ["pytest>=8"]
+managed = ["cryptography>=43"]
+test = ["pytest>=8", "cryptography>=43"]
 
 [project.scripts]
 agent-memory = "agent_memory_engine.cli:main"
+agent-memory-bridge = "agent_memory_engine.bridge:serve"
 # Transitional alias for users of the original Pi-specific release.
 pi-memory = "agent_memory_engine.cli:main"
 

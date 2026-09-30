@@ -1,5 +1,12 @@
 # Maturity roadmap
 
+Managed v1 now implements a separate, opt-in path for typed preference/decision
+records, user review, workspace filtering, encrypted SQLite storage, legacy
+import, and a local JSON-lines bridge. The original JSON observation API is
+unchanged. The phases below describe remaining platform maturity; their
+"current" labels refer to the original API and should not be read as denying
+the managed v1 path. See [managed memory v1](managed-memory.md).
+
 This roadmap separates implemented behavior from planned work. Milestones are
 ordered by dependency and risk rather than novelty.
 

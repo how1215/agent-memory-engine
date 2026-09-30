@@ -12,10 +12,12 @@ them locally, retrieves relevant observations with BM25 or optional multilingual
 hybrid search, and builds token-budgeted context. Pi is the first adapter, not a
 dependency of the engine.
 
-> **Project status:** local-first reference implementation. The storage and
-> retrieval contracts are now framework-neutral; transactional backends,
-> lifecycle policies, security controls, and additional adapters are planned and
-> are not yet production features.
+> **Project status:** local-first reference implementation. The original JSON
+> API remains available. An opt-in managed path now provides review, scoped
+> retrieval, encrypted SQLite storage, and a local bridge. The separate
+> [Personal Agent app](https://github.com/how1215/personal-agent) implements
+> macOS integration and encrypted backups; broader engine production controls
+> remain future work.
 
 ## Why this project matters
 
@@ -36,17 +38,22 @@ This project makes those stages explicit and independently replaceable.
 - Opt-in Pi adapter with graceful subprocess failure handling
 - Repeatable evaluation over 130 memories and 61 labeled queries
 - Automated tests across Python 3.10–3.13 in GitHub Actions
+- Opt-in managed memory with candidate review, revision/deletion, encrypted
+  SQLite storage, legacy import, and a versioned JSON-lines bridge
 
 ### Planned platform capabilities
 
-- Versioned memory schema and migrations
-- Episodic, semantic, procedural, preference, and decision memories
-- SQLite/PostgreSQL and vector-index backends
-- Workspace/tenant isolation, retention, deletion, export, and encryption
+- Additional memory kinds beyond the managed preference and decision records
+- PostgreSQL and vector-index backends
+- Multi-user tenant isolation, retention, backup/export, and key management
 - Recency, confidence, provenance, conflict, and supersession policies
 - Async service API, observability, adapter SDK, and additional agent adapters
 
 See the [roadmap](docs/roadmap.md) and [architecture guide](docs/architecture.md).
+
+The [managed memory v1 API](docs/managed-memory.md) adds review, scoped
+retrieval, encrypted SQLite storage, legacy import, and a JSON-lines app bridge.
+It is optional and leaves the original JSON CLI behavior intact.
 
 ## Measured retrieval quality
 
