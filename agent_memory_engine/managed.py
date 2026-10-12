@@ -57,6 +57,8 @@ class MemoryModel(Protocol):
 
     def propose(self, user_text: str) -> list[dict]: ...
 
+    def detect_conflicts(self, candidate: str, approved: list[dict]) -> list[dict]: ...
+
 
 class RecordStore(Protocol):
     def put(self, record: MemoryRecord, *, legacy_key: str | None = None) -> None: ...
@@ -166,6 +168,51 @@ class MemoryEngine:
             and item.content.casefold() == target.content.casefold()
             and item.scope == target.scope and item.workspace_id == target.workspace_id
         ]
+
+    def suggest_conflicts(self, record_id: str) -> list[dict]:
+        candidate = self._candidate(record_id)
+        if candidate.sensitivity != "normal":
+            return []
+        approved = [
+            item for item in self.store.visible(candidate.workspace_id, ())
+            if item.scope == candidate.scope and item.workspace_id == candidate.workspace_id
+            and item.content.casefold() != candidate.content.casefold()
+        ]
+        if not approved:
+            return []
+        if self.model is None:
+            raise RuntimeError("no memory model configured")
+        proposed = self.model.detect_conflicts(candidate.content, [
+            {"id": item.id, "content": item.content, "version": item.version,
+             "updated_at": item.updated_at} for item in approved
+        ])
+        if not isinstance(proposed, list):
+            raise ValueError("model must return a conflict list")
+        by_id = {item.id: item for item in approved}
+        seen = set()
+        result = []
+        for item in proposed:
+            if not isinstance(item, dict) or item.get("id") not in by_id \
+                    or not isinstance(item.get("reason"), str) or not item["reason"].strip():
+                raise ValueError("invalid model conflict")
+            if item["id"] in seen:
+                continue
+            seen.add(item["id"])
+            prior = by_id[item["id"]]
+            result.append({"candidate_id": candidate.id, "prior_id": prior.id,
+                           "prior_version": prior.version, "reason": item["reason"].strip()[:240]})
+        return result
+
+    def link_revision(self, candidate_id: str, prior_id: str) -> MemoryRecord:
+        candidate = self._candidate(candidate_id)
+        prior = self._required(prior_id)
+        if prior.status != "approved" or candidate.sensitivity != prior.sensitivity \
+                or candidate.scope != prior.scope or candidate.workspace_id != prior.workspace_id:
+            raise ValueError("revision target must be approved in the same scope and sensitivity")
+        linked = replace(candidate, version=prior.version + 1, supersedes_id=prior.id,
+                         updated_at=time.time())
+        self.store.update_candidate(linked)
+        return linked
 
     def revise(self, record_id: str, content: str) -> MemoryRecord:
         prior = self._required(record_id)

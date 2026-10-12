@@ -84,6 +84,63 @@ def test_rejected_revision_leaves_original_active(memory):
     assert engine.retrieve("npm") == []
 
 
+def test_conflict_suggestion_links_sourced_candidate_for_review(memory):
+    engine, store, _, _ = memory
+    prior = engine.create_candidate("Use npm for builds", scope="workspace", workspace_id="a")
+    engine.approve(prior.id)
+    candidate = engine.create_candidate("Use pnpm for builds", scope="workspace",
+                                        workspace_id="a", source_id="new-message")
+
+    class Model:
+        def detect_conflicts(self, content, approved):
+            assert content == candidate.content
+            assert [item["id"] for item in approved] == [prior.id]
+            return [{"id": prior.id, "reason": "Package manager decision changed"}]
+
+    engine.model = Model()
+    suggestions = engine.suggest_conflicts(candidate.id)
+    assert suggestions == [{"candidate_id": candidate.id, "prior_id": prior.id,
+                            "prior_version": 1, "reason": "Package manager decision changed"}]
+    assert store.get(candidate.id).status == "candidate"
+    linked = engine.link_revision(candidate.id, prior.id)
+    assert linked.source_id == "new-message" and linked.supersedes_id == prior.id
+    assert linked.version == 2 and linked.status == "candidate"
+    assert [item.id for item in engine.retrieve("npm", workspace_id="a")] == [prior.id]
+    engine.approve(linked.id)
+    assert engine.retrieve("npm", workspace_id="a") == []
+    assert [item.id for item in engine.retrieve("pnpm", workspace_id="a")] == [linked.id]
+
+
+def test_conflicts_do_not_cross_workspace_or_inspect_sensitive(memory):
+    engine, store, _, _ = memory
+    other = engine.create_candidate("Use npm", scope="workspace", workspace_id="b")
+    secret = engine.create_candidate("Private health decision", sensitivity="sensitive")
+    engine.approve(other.id)
+    engine.approve(secret.id)
+    candidate = engine.create_candidate("Use pnpm", scope="workspace", workspace_id="a")
+    assert engine.suggest_conflicts(candidate.id) == []
+    with pytest.raises(ValueError):
+        engine.link_revision(candidate.id, other.id)
+    assert store.get(candidate.id).status == "candidate"
+    sensitive_candidate = engine.create_candidate("New private health decision", sensitivity="sensitive")
+    assert engine.suggest_conflicts(sensitive_candidate.id) == []
+
+
+def test_conflict_model_cannot_name_unseen_memory(memory):
+    engine, _, _, _ = memory
+    prior = engine.create_candidate("Use npm")
+    engine.approve(prior.id)
+    candidate = engine.create_candidate("Use pnpm")
+
+    class Model:
+        def detect_conflicts(self, content, approved):
+            return [{"id": "unknown", "reason": "Conflict"}]
+
+    engine.model = Model()
+    with pytest.raises(ValueError):
+        engine.suggest_conflicts(candidate.id)
+
+
 def test_encrypted_persistence_and_wrong_key(memory):
     engine, store, path, key = memory
     item = engine.create_candidate("secret phrase only for encryption check")

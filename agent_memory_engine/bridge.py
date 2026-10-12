@@ -57,6 +57,10 @@ class Bridge:
                     ))
                 elif op == "find_exact_duplicates":
                     result = [asdict(item) for item in self.engine.find_exact_duplicates(args["id"])]
+                elif op == "suggest_conflicts":
+                    result = self.engine.suggest_conflicts(args["id"])
+                elif op == "link_revision":
+                    result = asdict(self.engine.link_revision(args["id"], args["prior_id"]))
                 elif op == "retrieve":
                     result = [asdict(item) for item in self.engine.retrieve(**args)]
                 elif op == "get":
